@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d21437">
+<title>Bloomfield Campus Walk</title>
+<style>
+/* One-screen shell: the walk and the 3D map stay loaded side by side; a bottom tab bar switches between them. */
+:root{--bg:#f4f4f5;--surface:#fff;--ink:#333;--muted:#64646a;--line:#d6d6d9;--accent:#d21437;color-scheme:light}
+@media (prefers-color-scheme: dark){:root{--bg:#18181b;--surface:#232327;--ink:#ececee;--muted:#a6a6ab;--line:#38383d;--accent:#ff5a73;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Roboto,"Helvetica Neue",Arial,system-ui,sans-serif;display:flex;flex-direction:column}
+.views{position:relative;flex:1;min-height:0}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+iframe.off{visibility:hidden;pointer-events:none}
+nav{flex:none;display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding:6px max(10px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));gap:8px}
+nav button{flex:1;min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font:700 .95rem inherit;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--accent);color:#fff}
+nav button:focus-visible{outline:3px solid #ffc909;outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="views">
+  <iframe id="walk" title="Campus walk" src="walk.html?app=1"></iframe>
+  <iframe id="m3d" class="off" title="3D campus map" src="m3d/index.html"></iframe>
+</div>
+<nav role="tablist" aria-label="Views">
+  <button type="button" role="tab" id="t-walk" aria-selected="true">Campus walk</button>
+  <button type="button" role="tab" id="t-m3d" aria-selected="false">3D map</button>
+</nav>
+<script>
+const frames = {walk:document.getElementById("walk"), m3d:document.getElementById("m3d")};
+function show(v){
+  for(const k in frames){ frames[k].classList.toggle("off", k!==v); document.getElementById("t-"+k).setAttribute("aria-selected", String(k===v)); }
+}
+document.getElementById("t-walk").onclick = ()=>show("walk");
+document.getElementById("t-m3d").onclick = ()=>show("m3d");
+addEventListener("message", e=>{
+  const d = e.data || {};
+  if(d.type==="show3d"){ show("m3d"); frames.m3d.contentWindow.postMessage({type:"select", id:d.id}, "*"); }
+});
+</script>
+</body>
+</html>

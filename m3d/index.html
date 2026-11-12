@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d21437">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Bloomfield Campus 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@700&display=swap">
+<style>
+/* Layout: one-screen app. Slim header, full-bleed 3D canvas, floating view controls, bottom sheet for the tapped building. */
+/* Montclair brand colors (Pantone 200 red, #333, 289 navy, 7548 yellow) with Roboto web substitutes. */
+:root{
+  --bg:#eef0f2; --surface:#ffffff; --ink:#333333; --muted:#64646a; --line:#d6d6d9;
+  --accent:#d21437; --accent-ink:#ffffff; --sel:#ffc909; --navy:#0f2d52; --chip:#f4f4f5;
+  --bldg:#d21437; --bldg-plain:#b8b0b3;
+  --display:"Roboto Condensed","Helvetica Neue",Arial,sans-serif;
+  --body:"Roboto","Helvetica Neue",Arial,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141417; --surface:#232327; --ink:#ececee; --muted:#a6a6ab; --line:#38383d;
+  --accent:#ff5a73; --accent-ink:#1a0006; --chip:#2c2c31; --bldg:#d21437; --bldg-plain:#7d7579; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141417; --surface:#232327; --ink:#ececee; --muted:#a6a6ab; --line:#38383d;
+  --accent:#ff5a73; --accent-ink:#1a0006; --chip:#2c2c31; --bldg:#d21437; --bldg-plain:#7d7579; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;overflow:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:#d21437}
+.app{position:relative;height:100%;display:flex;flex-direction:column}
+header{background:#d21437;color:#fff;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}
+header h1{font-family:var(--display);font-size:1.15rem;margin:0;line-height:1.2}
+header small{display:block;font-size:.72rem;opacity:.9;letter-spacing:.05em;text-transform:uppercase}
+header .draft{font-size:.72rem;font-weight:700;background:rgba(255,255,255,.18);padding:3px 8px;border-radius:99px;white-space:nowrap}
+.stage{position:relative;flex:1;min-height:0;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;transform:translate(-50%,-100%);font:700 11px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);padding:2px 6px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2);opacity:.95}
+.lbl.photo{border-color:var(--accent)}
+.lbl.sel{background:var(--sel);color:#0f2d52;border-color:var(--sel)}
+
+.controls{position:absolute;top:10px;right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px;z-index:3}
+.controls button,.legend{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.controls button{min-height:40px;padding:0 12px;font:700 .8rem var(--body);cursor:pointer}
+.controls button.find{display:flex;align-items:center;justify-content:center;gap:5px;background:#d21437;color:#fff;border-color:#d21437}
+.controls button[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.legend{position:absolute;top:10px;left:max(10px,env(safe-area-inset-left,0px));padding:8px 10px;font-size:.74rem;display:flex;flex-direction:column;gap:4px;z-index:3}
+.legend span{display:flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.compass{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:12px;z-index:3;width:44px;height:44px;border-radius:50%;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.compass span{display:block;font:700 12px var(--body);color:var(--accent);line-height:1;text-align:center}
+.compass span::before{content:"▲";display:block;font-size:10px}
+.hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--surface);color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-size:.78rem;white-space:nowrap;z-index:2}
+
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:4;background:var(--surface);border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -6px 20px rgba(0,0,0,.18);max-height:62%;overflow:auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px calc(16px + env(safe-area-inset-bottom,0px))}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 8px}
+.sheet-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sheet h2{font-family:var(--display);font-size:1.35rem;line-height:1.15;margin:0;text-wrap:balance}
+.close{flex:none;min-width:40px;min-height:40px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--ink);font:700 1.1rem var(--body);cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--chip);color:var(--muted);border:1px solid var(--line)}
+.chip.warn{background:#fff6d6;color:#5c4700;border-color:#f0dc8c}
+.sheet h3{font-size:.85rem;margin:14px 0 4px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+.sheet ul{margin:0;padding-left:18px}
+.sheet p{margin:0}
+.strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.strip button{flex:none;padding:0;border:0;background:none;cursor:pointer;border-radius:10px;overflow:hidden}
+.strip img{display:block;height:120px;width:auto;max-width:none;border-radius:10px}
+.empty{color:var(--muted);font-size:.9rem}
+.note{font-size:.85rem;color:var(--muted)}
+
+.viewer{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:calc(12px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.viewer img{max-width:100%;max-height:82%;object-fit:contain;border-radius:8px}
+.viewer p{color:#ddd;font-size:.85rem;margin:0;text-align:center}
+.viewer button{min-height:44px;padding:0 18px;border-radius:99px;border:0;background:#fff;color:#111;font:700 .9rem var(--body);cursor:pointer}
+button:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
+.err{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--muted)}
+@media (min-width:760px){ .sheet{left:auto;right:max(16px,env(safe-area-inset-right,0px));bottom:16px;width:380px;max-height:calc(100% - 32px);border-radius:18px;border:1px solid var(--line)} .grab{display:none} }
+</style>
+
+<div class="app">
+  <header>
+    <div><small>BCMSU · Center for Student Success</small><h1>Bloomfield Campus 3D</h1></div>
+    <span class="draft">Layout draft</span>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="c" aria-label="3D model of campus buildings. Tap a building for details."></canvas>
+    <div id="labels" aria-hidden="true"></div>
+    <div class="legend" aria-label="Legend">
+      <span><i class="sw" style="background:#d21437"></i>Has photos</span>
+      <span><i class="sw" style="background:var(--bldg-plain)"></i>No photos yet</span>
+      <span><i class="sw" style="background:#3f8f3a"></i>Outdoor space</span>
+      <span><i class="sw" style="background:#0f2d52"></i>Parking</span>
+      <span><i class="sw" style="background:#ffc909"></i>Selected</span>
+    </div>
+    <div class="controls">
+      <button type="button" id="vfind" class="find" aria-label="Find an office"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg>Find</button>
+      <button type="button" id="v3d" aria-pressed="true">3D</button>
+      <button type="button" id="vtop" aria-pressed="false">Top</button>
+      <button type="button" id="vlbl" aria-pressed="false">All labels</button>
+    </div>
+    <div class="compass" aria-hidden="true"><span id="needle">N</span></div>
+    <div class="hint" id="hint">Drag to turn · pinch to zoom · tap a building</div>
+    <section class="sheet" id="sheet" hidden aria-live="polite"></section>
+  </div>
+</div>
+<div class="viewer" id="viewer" hidden><img id="vimg" alt=""><p id="vcap"></p><button type="button" id="vclose">Close photo</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="offices.js"></script>
+<script src="find.js"></script>
+<script>
+(async function(){
+const $ = id => document.getElementById(id);
+const asset = p => (window.EMBED && window.EMBED[p]) || p;
+const BASIS = {est:"Height is an estimate", photo:"Height counted from photo", source:"Height from research source"};
+let B;
+try { B = window.EMBED_DATA || await (await fetch("buildings.json")).json(); }
+catch(e){ $("stage").innerHTML = '<p class="err">The building data did not load. Reload the page to try again.</p>'; return; }
+if(!window.THREE){ $("stage").innerHTML = '<p class="err">The 3D library did not load. Check the connection and reload.</p>'; return; }
+
+const PX_FT = 100/110;            // map scale bar: 100 ft ≈ 110 map px
+const FLOOR = 12/PX_FT;           // ~12 ft per floor, in map px
+const stage = $("stage"), canvas = $("c");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 5, 8000);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI*0.47; controls.minDistance = 120; controls.maxDistance = 2600;
+controls.screenSpacePanning = false;
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8d, 0.85));
+const sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(-600, 900, 400); scene.add(sun);
+
+// Ground: the 2026 campus map, laid flat at true scale
+const tex = new THREE.TextureLoader().load(asset("campus-map.jpg"), ()=>render());
+tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000,1333), new THREE.MeshBasicMaterial({map:tex}));
+ground.rotation.x = -Math.PI/2; scene.add(ground);
+
+const css = getComputedStyle(document.documentElement);
+const colPhoto = new THREE.Color("#d21437"), colSel = new THREE.Color("#ffc909"), colPlace = new THREE.Color("#3f8f3a"), colPark = new THREE.Color("#0f2d52");
+const placeCol = b => b.kind==="parking" ? colPark : colPlace;
+const colPlain = () => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue("--bldg-plain").trim() || "#b8b0b3");
+const meshes = [];
+B.forEach(b=>{
+  let g, h;
+  if(b.place){ // outdoor space: a low green disc instead of a building
+    h = 2; g = new THREE.CylinderGeometry(24,24,h,32); g.translate(b.c[0]-1000, h/2, b.c[1]-666.5);
+  } else {
+    const sh = new THREE.Shape(b.pts.map(([x,y])=>new THREE.Vector2(x-1000, -(y-666.5))));
+    h = b.floors*FLOOR;
+    g = new THREE.ExtrudeGeometry(sh,{depth:h, bevelEnabled:false});
+    g.rotateX(-Math.PI/2);
+  }
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({color: b.place? placeCol(b) : b.photos.length? colPhoto : colPlain(), transparent:true, opacity:.93}));
+  m.userData = b; b.mesh = m; b.h = h;
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(g, 30), new THREE.LineBasicMaterial({color:0x2a2a2a, transparent:true, opacity:.35}));
+  m.add(edges);
+  scene.add(m); meshes.push(m);
+  const el = document.createElement("div");
+  el.className = "lbl" + (b.photos.length?" photo":"");
+  el.textContent = b.name.replace(/ \(.*\)$/,"").replace(" and L.R.C.","/L.R.C.").replace("Center for Technology + Creativity and Library","CTC + Library").replace("Westminster Hall and Robert V. Van Fossan Theatre","Westminster / Van Fossan");
+  $("labels").appendChild(el); b.el = el;
+  b.anchor = new THREE.Vector3(b.c[0]-1000, h+4, b.c[1]-666.5);
+});
+
+let allLabels = false, sel = null;
+function setView(top){
+  $("v3d").setAttribute("aria-pressed", String(!top)); $("vtop").setAttribute("aria-pressed", String(top));
+  // Portrait screens look at campus from the west so its long east-west axis runs up the screen
+  const t = new THREE.Vector3(-20,0,40);
+  const portrait = stage.clientHeight > stage.clientWidth;
+  const d = portrait ? 1950 : 1300;
+  controls.target.copy(t);
+  if(portrait){
+    if(top) camera.position.set(t.x-1, d*1.15, t.z);
+    else camera.position.set(t.x-d*0.7, d*0.72, t.z+d*0.12);
+  } else {
+    if(top) camera.position.set(t.x, d*1.1, t.z+1);
+    else camera.position.set(t.x+d*0.15, d*0.62, t.z+d*0.66);
+  }
+  controls.update(); render();
+}
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); render();
+}
+const v = new THREE.Vector3();
+function placeLabels(){
+  $("needle").parentElement.style.transform = `rotate(${controls.getAzimuthalAngle()}rad)`;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  B.forEach(b=>{
+    const show = allLabels || b.photos.length || b===sel;
+    if(!show){ b.el.hidden = true; return; }
+    v.copy(b.anchor).project(camera);
+    const off = v.z>1 || v.x<-1.1 || v.x>1.1 || v.y<-1.1 || v.y>1.1;
+    b.el.hidden = off;
+    if(!off){ b.el.style.left = ((v.x+1)/2*w)+"px"; b.el.style.top = ((1-v.y)/2*h)+"px"; }
+    b.el.classList.toggle("sel", b===sel);
+  });
+}
+let pending = false;
+function render(){ if(pending) return; pending = true; requestAnimationFrame(()=>{ pending=false; controls.update(); renderer.setClearColor(new THREE.Color(getComputedStyle(document.body).backgroundColor)); renderer.render(scene,camera); placeLabels(); }); }
+controls.addEventListener("change", ()=>{ render(); $("hint").hidden = true; });
+(function loop(){ if(controls.update()) render(); requestAnimationFrame(loop); })();
+
+// Tap vs drag
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
+canvas.addEventListener("pointerdown", e=>{ down = [e.clientX,e.clientY]; });
+canvas.addEventListener("pointerup", e=>{
+  if(!down) return; const moved = Math.hypot(e.clientX-down[0], e.clientY-down[1]); down = null;
+  if(moved>8) return;
+  const r = canvas.getBoundingClientRect();
+  ndc.set((e.clientX-r.left)/r.width*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  select(hit ? hit.object.userData : null);
+});
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function select(b){
+  if(sel) sel.mesh.material.color.copy(sel.place? placeCol(sel) : sel.photos.length? colPhoto : colPlain());
+  sel = b;
+  if(!b){ $("sheet").hidden = true; render(); return; }
+  b.mesh.material.color.copy(colSel);
+  const photos = b.photos.length
+    ? `<div class="strip">${b.photos.map(p=>`<button type="button" data-p="${p}"><img src="${asset("photos/"+p+".jpg")}" alt="${esc(p.replace(/-/g," "))}" loading="lazy"></button>`).join("")}</div>`
+    : `<p class="empty">No photos yet. Add this building to the next photo walk.</p>`;
+  $("sheet").innerHTML = `
+    <div class="grab"></div>
+    <div class="sheet-top"><h2>${esc(b.name)}</h2><button class="close" type="button" id="sclose" aria-label="Close details">×</button></div>
+    <div class="chips">
+      ${b.place ? (b.kind==="parking" ? `<span class="chip">Parking</span>` : `<span class="chip">Outdoor space</span><span class="chip warn">Location approximate</span>`) : `
+      <span class="chip">About ${b.floors} floor${b.floors>1?"s":""}</span>
+      <span class="chip ${b.basis==="est"?"warn":""}">${BASIS[b.basis]}</span>
+      <span class="chip">Footprint ≈ ${Math.round(Math.abs(area(b.pts))*PX_FT*PX_FT/100)*100} sq ft</span>`}
+    </div>
+    <h3>Photos (${b.photos.length})</h3>${photos}${b.photos.length? `<p class="note">Photos by ${((a)=>a.length<3?a.join(" and "):a.slice(0,-1).join("; ")+"; and "+a[a.length-1])([...new Set(b.photos.map(p=>((b.credits||{})[p]||["CSS project team"])[0]))])}</p>`:""}
+    <h3>Offices and uses</h3>${b.offices.length? `<ul>${b.offices.map(o=>`<li>${esc(o)}</li>`).join("")}</ul>` : `<p class="empty">None listed on either map.</p>`}
+    ${b.note? `<h3>Check</h3><p class="note">${esc(b.note)}</p>`:""}
+    <h3>Name source</h3><p class="note">${esc(b.src)}</p>`;
+  $("sheet").hidden = false;
+  $("sclose").onclick = ()=>select(null);
+  $("sheet").querySelectorAll(".strip button").forEach(btn=>btn.onclick=()=>{
+    $("vimg").src = asset("photos/"+btn.dataset.p+".jpg"); $("vimg").alt = btn.dataset.p.replace(/-/g," ");
+    const cr = (b.credits||{})[btn.dataset.p] || ["CSS project team",""]; $("vcap").textContent = `${b.name} · Photo: ${cr[0]}${cr[1]?", "+cr[1]:""}`; $("viewer").hidden = false; $("vclose").focus();
+  });
+  render();
+}
+function area(p){ let a=0; for(let i=0;i<p.length;i++){ const [x1,y1]=p[i],[x2,y2]=p[(i+1)%p.length]; a+=x1*y2-x2*y1; } return a/2; }
+$("vclose").onclick = ()=>{ $("viewer").hidden = true; };
+$("v3d").onclick = ()=>setView(false);
+$("vtop").onclick = ()=>setView(true);
+$("vlbl").onclick = ()=>{ allLabels = !allLabels; $("vlbl").setAttribute("aria-pressed", String(allLabels)); render(); };
+addEventListener("resize", resize);
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", ()=>{ meshes.forEach(m=>{ if(m.userData!==sel && !m.userData.photos.length) m.material.color.copy(colPlain()); }); render(); });
+function focusOn(b){
+  const off = camera.position.clone().sub(controls.target);
+  const len = Math.min(off.length(), 900); off.setLength(len);
+  controls.target.set(b.c[0]-1000, 0, b.c[1]-666.5);
+  // On phones the details sheet covers the lower screen, so shift the view to keep the building in the top part
+  if(stage.clientWidth < 760){ const flat = new THREE.Vector3(off.x,0,off.z).setLength(len*0.45); controls.target.add(flat); }
+  camera.position.copy(controls.target).add(off); controls.update(); render();
+}
+addEventListener("message", e=>{
+  const d = e.data || {}; if(d.type!=="select") return;
+  const b = B.find(x=>x.id===d.id); if(!b) return;
+  select(b); focusOn(b);
+});
+if(window.FindOffice) FindOffice.mount({ button: $("vfind"), actions(e){
+  const b = B.find(x=>x.id===e.b);
+  return b ? [{label:"Show this building", primary:true, run:()=>{ select(b); focusOn(b); }}] : [];
+}});
+resize(); setView(false);
+})();
+</script>
+
+</body>
+</html>

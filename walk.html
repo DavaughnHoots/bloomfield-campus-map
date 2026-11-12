@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d21437">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Bloomfield Campus Walk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@700&family=Roboto+Slab:wght@600&display=swap">
+<style>
+/* Montclair brand colors (Pantone 200 red, Black/#333, Cool Gray 8, 289 navy, 7548 yellow) and Roboto web substitutes, per montclair.edu brand pages. */
+/* Layout: phone-first app. Sticky header, pannable campus map with lettered stop pins, one stop card at a time, sticky prev/next bar. */
+:root{
+  --bg:#f4f4f5; --surface:#ffffff; --ink:#333333; --muted:#64646a; --line:#d6d6d9;
+  --accent:#d21437; --accent-ink:#ffffff; --pin:#ffc909; --pin-ink:#0f2d52; --warn-bg:#fff6d6; --warn-ink:#5c4700; --route:#0f2d52;
+  --display:"Roboto Condensed","Helvetica Neue",Arial,sans-serif;
+  --slab:"Roboto Slab",Rockwell,Georgia,serif;
+  --body:"Roboto","Helvetica Neue",Arial,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#18181b; --surface:#232327; --ink:#ececee; --muted:#a6a6ab; --line:#38383d;
+  --accent:#ff5a73; --accent-ink:#1a0006; --pin:#ffc909; --pin-ink:#0f2d52; --warn-bg:#3a3110; --warn-ink:#ffe28a; --route:#0f2d52; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#18181b; --surface:#232327; --ink:#ececee; --muted:#a6a6ab; --line:#38383d;
+  --accent:#ff5a73; --accent-ink:#1a0006; --pin:#ffc909; --pin-ink:#0f2d52; --warn-bg:#3a3110; --warn-ink:#ffe28a; --route:#0f2d52; color-scheme:dark}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) header{background:#d21437;color:#fff}}
+:root[data-theme="dark"] header{background:#d21437;color:#fff}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--accent);color:var(--accent-ink)}
+header .wrap{padding-block:12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+header h1{font-family:var(--display);font-size:1.25rem;margin:0;line-height:1.2}
+header small{display:block;font-size:.78rem;opacity:.85;letter-spacing:.04em;text-transform:uppercase}
+.count{font-size:.85rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.banner{background:var(--warn-bg);color:var(--warn-ink);font-size:.85rem;padding:10px 12px;border-radius:10px;margin-top:14px}
+
+/* Map */
+.mapbox{margin-top:14px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;position:relative}
+.map{height:min(48vh,420px);overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.canvas{position:relative;width:1300px;aspect-ratio:3/2;transition:width .25s}
+.mapbox.out .map{height:auto;overflow:hidden}
+.mapbox.out .canvas{width:100%}
+.canvas img{position:absolute;inset:0;width:100%;height:100%;max-width:none;display:block}
+.canvas svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.pin{position:absolute;transform:translate(-50%,-100%);width:38px;height:38px;border-radius:50% 50% 50% 0;rotate:-45deg;
+  background:var(--route);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;padding:0}
+.pin span{display:block;rotate:45deg;color:#fff;font:700 15px var(--body)}
+.pin.current{background:var(--pin);width:46px;height:46px;z-index:2}
+.pin.current span{color:var(--pin-ink);font-size:17px}
+.mapbox.out .pin{width:24px;height:24px;border-width:2px}
+.mapbox.out .pin span{font-size:11px}
+.mapbox.out .pin.current{width:28px;height:28px}
+.zoom{position:absolute;right:10px;bottom:10px;z-index:3;min-height:40px;padding:0 14px;border-radius:99px;border:0;
+  background:var(--surface);color:var(--ink);font:700 .85rem var(--body);box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
+.credit{font-size:.75rem;color:var(--muted);margin:6px 2px 0}
+
+/* Stop card */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-top:14px;overflow:hidden}
+label.photo{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;aspect-ratio:4/3;max-width:100%;
+  background:repeating-linear-gradient(135deg,var(--bg) 0 14px,var(--surface) 14px 28px);color:var(--muted);cursor:pointer;text-align:center;padding:16px;position:relative}
+label.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+label.photo .credit-tag{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;font-size:.72rem;padding:2px 8px;border-radius:99px}
+label.photo b{color:var(--ink)}
+label.photo input{position:absolute;opacity:0;width:1px;height:1px}
+.body{padding:16px;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+h2{font-family:var(--display);font-size:1.6rem;line-height:1.15;margin:2px 0 0;text-wrap:balance}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--warn-bg);color:var(--warn-ink)}
+.tag.ok{background:var(--bg);color:var(--accent);border:1px solid var(--line)}
+section h3{font-size:.95rem;margin:0 0 4px;color:var(--accent)}
+section p{margin:0}
+.dyk{background:var(--bg);border-radius:12px;padding:12px 14px}
+.dyk h3{color:var(--accent);font-family:var(--slab);font-size:1rem}
+.meta a{color:var(--accent)}
+.see3d{min-height:44px;border-radius:12px;border:2px solid var(--accent);background:transparent;color:var(--accent);font:700 .95rem var(--body);cursor:pointer}
+.meta{font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin:0}
+
+nav.bar{position:sticky;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);margin-top:20px;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.bar .wrap{display:flex;gap:10px;padding-block:10px}
+nav.bar button{flex:1;min-height:48px;border-radius:12px;font:700 1rem var(--body);cursor:pointer;border:2px solid var(--accent)}
+.prev{background:transparent;color:var(--accent)}
+.next{background:var(--accent);color:var(--accent-ink)}
+nav.bar button:disabled{opacity:.4;cursor:default}
+.pin:focus-visible,button:focus-visible,label.photo:focus-within{outline:3px solid var(--pin);outline-offset:2px}
+/* Wide screens (foldable inner display, tablets): map beside the stop card */
+@media (min-width:760px){
+  .wrap{max-width:1100px}
+  main.wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0 20px;align-items:start}
+  main .banner,main .foot{grid-column:1/-1}
+  .side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);min-width:0}
+  .map{height:min(62vh,560px)}
+  .card{min-width:0}
+}
+.findbtn{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin-top:14px;padding:0 14px;border-radius:14px;border:2px solid var(--accent);background:var(--surface);color:var(--ink);font:700 1rem var(--body);cursor:pointer;text-align:left}
+.findbtn svg{flex:none;color:var(--accent)}
+.findbtn small{display:block;font-weight:400;font-size:.8rem;color:var(--muted)}
+.hit{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;border:4px solid #d21437;background:rgba(255,201,9,.55);box-shadow:0 0 0 4px #fff;z-index:3;pointer-events:none}
+.mapbox.out .hit{width:20px;height:20px;border-width:3px}
+.hitnote{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--warn-bg);color:var(--warn-ink);font-size:.85rem;padding:8px 12px;border-radius:10px;margin-top:8px}
+.hitnote button{flex:none;min-height:36px;border-radius:99px;border:1px solid currentColor;background:transparent;color:inherit;font:700 .8rem var(--body);padding:0 12px;cursor:pointer}
+@media (prefers-reduced-motion:no-preference){.hit{animation:pulse 1.4s ease-out 3}@keyframes pulse{50%{box-shadow:0 0 0 12px rgba(210,20,55,.25)}}}
+.foot{font-size:.8rem;color:var(--muted);padding-block:16px 8px}
+@media (prefers-reduced-motion:no-preference){.card{animation:in .25s ease-out}@keyframes in{from{transform:translateY(6px);opacity:.6}}}
+@media (prefers-reduced-motion:reduce){.canvas{transition:none}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div><small>BCMSU · Center for Student Success</small><h1>Bloomfield Campus Walk</h1></div>
+    <div class="count" id="count">Stop A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="banner"><b>Demo only.</b> Building names and locations come from the 2026 campus parking map. Then and Did you know entries are drafts from college and university sources, pending verification. Some photos and Today details are still placeholders.</p>
+
+  <div class="side">
+  <button class="findbtn" id="findbtn" type="button"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg><span>Where do I go for…?<small>Find an office, like Financial Aid or Tutoring</small></span></button>
+  <div class="mapbox" id="mapbox">
+    <div class="map" id="map">
+      <div class="canvas" id="canvas">
+        <img src="campus-map.jpg" alt="Campus map of Bloomfield College of Montclair State University showing buildings, streets and parking lots">
+        <svg viewBox="0 0 2000 1333" preserveAspectRatio="none" aria-hidden="true"><polyline id="line" fill="none" stroke="#0f2d52" stroke-width="7" stroke-dasharray="16 12" stroke-linecap="round" stroke-linejoin="round" opacity=".85"></polyline></svg>
+        <div id="pins"></div>
+        <div class="hit" id="hit" hidden></div>
+      </div>
+    </div>
+    <button class="zoom" id="zoom" type="button">Show whole map</button>
+  </div>
+  <div class="hitnote" id="hitnote" hidden><span id="hittext"></span><button type="button" id="hitclear">Clear</button></div>
+  <p class="credit">Base map: Bloomfield Campus Parking Map 2026. Lettered pins are tour stops. Numbered red circles are parking lots. The dashed line shows stop order, not an exact walking path.</p>
+  </div>
+
+  <article class="card" id="card" aria-live="polite"></article>
+
+  <p class="foot">Tap the photo area to try one of your own pictures. It stays on your phone and is not uploaded. This route has not been checked as an accessible path.</p>
+</main>
+
+<nav class="bar" aria-label="Stop navigation">
+  <div class="wrap">
+    <button class="prev" id="prev" type="button">‹ Back</button>
+    <button class="next" id="next" type="button">Next stop ›</button>
+  </div>
+</nav>
+
+<script src="offices.js"></script>
+<script src="find.js"></script>
+<script>
+const PH = "[Placeholder]";
+const BCH = ["College history","https://web.archive.org/web/20240419000922/https://bloomfield.edu/about-us/history-bloomfield-college"];
+const H24 = ["College history (2024)","https://web.archive.org/web/20240521225506/https://www.bloomfield.edu/about/history-of-bloomfield-college/"];
+const B20 = ["2020 building list","https://web.archive.org/web/20200930035502/https://bloomfield.edu/campus-life/campus-security/access-campus-buildings"];
+const OLDMAP = ["Older campus map (scanned by CSS)", null];
+// x, y are positions on the 2000 × 1333 base map; a stop without x, y has no pin yet
+const stops = [
+  { name:"Center for Student Success", b3d:36, kind:"Welcome point", photo:"photos/center-for-student-success-entrance.jpg", x:765, y:975,
+    loc:"Location confirmed by the CSS team",
+    today:"This is where students come for academic support. The lower level has the Writing Center, a computer lab, and the Group Study Hub. The main level has the Office for Students with Disabilities and the TRIO SSS - STAR Program. Upstairs are the Tutoring Center, another computer lab, and TRIO McNair. The Dining Hall in Schweitzer Hall is attached next door.",
+    then:"[Placeholder: CSS will write this stop's history.]",
+    dyk:"CSS is a hub for Academic Success Coaching, tutoring and writing support, advising, and programs such as Bloomfield Boost and the McNair Scholars Program. The Disability Resource Center is in Suite 103.",
+    try:"Find one person working here and ask what they wish they had known as a first-year student.",
+    src:[["CSS page","https://inside.montclair.edu/colleges-schools-research/bloomfield/office-dean/bloomfield-college-center-student-success"],["Bloomfield College at Montclair","https://inside.montclair.edu/colleges-schools-research/bloomfield"]] },
+  { name:"Franklin Street Residence Hall", b3d:26, kind:"Campus living", photo:"photos/franklin-street-residence-hall-entrance.jpg", x:460, y:960,
+    today:"Shown on the campus map as a residence hall, on the west side of campus at Franklin and Broad Streets. [Add who lives here and where residents get help.]",
+    then:"Franklin Street has been part of the college's story since 1872, when the young seminary moved into the old Bloomfield Academy on this street. In May 2013 the college broke ground at the corner of Broad and Franklin on what it called the largest building in its history, and the hall opened to students in August 2014.",
+    dyk:"The hall has 234 beds across four floors and earned LEED Silver certification for sustainable design. Its ground floor was built with public retail space, including a Barnes & Noble that served as the campus bookstore.",
+    try:"Look across Franklin Street toward the College Quad. How long do you think the walk to your first class will take?",
+    src:[["Construction","https://web.archive.org/web/20240416045751/https://bloomfield.edu/about-us/news/bloomfield-college-begin-construction-largest-building-its-history"],["Completion","https://web.archive.org/web/20240228133604/https://bloomfield.edu/about-us/news/college-completes-new-residence-hall"],["LEED","https://web.archive.org/web/20230923121818/https://bloomfield.edu/about-us/news/franklin-street-residence-hall-earns-leed-designation"],BCH] },
+  { name:"Richards Hall", b3d:19, kind:"Student services", photo:"photos/richards-hall-front.jpg", x:638, y:904,
+    loc:"Name and address from the building sign",
+    today:"The sign out front reads Richards Hall, 463 Franklin Street. Today it holds Student Services and the Bloomfield campus mail room, which handles campus mail rather than student mail. [Add which student services are offered here.]",
+    then:"Richards Hall appears as building 8 on the college's 2005 campus map. By 2020 the college listed it as home to the Physical Plant, Purchasing, and the Mailroom. [Add when it was built and who it is named for.]",
+    dyk:"The mail room has stayed put. It was listed here in 2020 and on the older printed campus map, and it is still here today.",
+    try:"Seibert Hall is just up Franklin Street at number 469. Can you spot it from here?",
+    src:[["2005 campus map","https://web.archive.org/web/20051025235331/http://www.bloomfield.edu:80/About/maps/campusmap.asp"], B20, OLDMAP] },
+  { name:"Knox Hall", b3d:15, kind:"Registration and money matters", photo:"photos/knox-hall-front.jpg", x:608, y:821,
+    loc:"Offices from the building sign",
+    today:"This is where students take care of registration and paying for college. The building sign lists the Registrar, Financial Aid, the Bursar, Human Resources, Payroll, Accounts Payable, the Controller, and Information Technology. Red Hawk Central and Financial Services are here too.",
+    then:"In 1913 the school, then Bloomfield Theological Seminary, was serving students from some 15 language groups. The college's history page says that in 1914 Knox Hall was dedicated and a \"Day of Nations\" was celebrated in five languages. [Add who the hall is named for.]",
+    dyk:"Students have come here for money matters for years. In 2020 the college listed Knox Hall, at 467 Franklin Street, as home to Student Financial Services, Payroll, and Accounts Payable.",
+    try:"Find the Registrar and Financial Aid. Write down one question you would bring to each office.",
+    src:[H24, B20, OLDMAP] },
+  { name:"College Quad", kind:"Outdoor gathering space", photo:"photos/campus-grounds-061423-7803-uc.jpg", credit:"Mike Peters / MSU University Communications", x:705, y:745,
+    today:"The green space at the center of the main campus block, surrounded by halls on every side. [Add how students use it and which events happen here.]",
+    then:"The college has grown up in the middle of historic Bloomfield. Several college buildings count toward the Bloomfield Green Historic District, which was added to the National Register of Historic Places in 1978.",
+    dyk:"Talbott Hall, home of today's Student Center, sits right on the College Quad. Next to the Quad is Carlozzi Commons, named for Trustee Nicholas Carlozzi and his wife, Cathy, after a leadership gift from the Carlozzi family foundation.",
+    try:"Stand in the middle and name the buildings you can see. Which one have you not been inside yet?",
+    src:[["Bloomfield Green Historic District","https://en.wikipedia.org/wiki/Bloomfield_Green_Historic_District"],["Student Center move","https://web.archive.org/web/20240228132237/https://bloomfield.edu/about-us/news/student-center-relocates-talbott-hall"],["Carlozzi Commons","https://web.archive.org/web/20190822012430/https://bloomfield.edu/about-us/news/bloomfield-college-unveils-carlozzi-commons"]] },
+  { name:"Westminster Hall & Robert V. Van Fossan Theatre", b3d:35, kind:"Performance and gathering", photo:"photos/westminster-hall-061423-7716-uc.jpg", credit:"Mike Peters / MSU University Communications", x:835, y:1115,
+    today:`Shown on the campus map as two connected buildings at the south end of the quad, near Fremont Street. In 2004 the college described the Westminster Arts Center as home to the 300-seat Robert V. Van Fossan Theatre and the Westminster Art Gallery. [Add what happens inside today.]`,
+    then:"Before it was a theatre, this building was Westminster Presbyterian Church, built in the early 1890s in the Richardsonian Romanesque style from locally quarried stone. Bloomfield College acquired it in 1966, and the former sanctuary was renovated in 1989 and is now the Van Fossan Theatre.",
+    dyk:"The building has 72 roofs. A cloister connects it to the Jarvie Memorial Building next door, which now holds classrooms and reception space.",
+    try:"Find out what show or event is coming up here this semester.",
+    src:[["HBA architects","https://hba-llc.com/portfolio/bcw/"],["Bloomfield Green Historic District","https://en.wikipedia.org/wiki/Bloomfield_Green_Historic_District"],["College web page captured Jan 2004 (link in research notes)", null]] },
+  { name:"Center for Career Development", b3d:27, kind:"Student support", x:888, y:990,
+    today:`Labeled on the campus map near Schweitzer Hall and Austin Place. ${PH} Add services such as résumé help or internship search.`,
+    then:"Since its founding, the college has prepared students for careers, first in ministry and later in fields from nursing to the arts. [Placeholder: CSS will write this stop's history.]",
+    dyk:"Today, career services are part of the Center for Academic Advising and Career Education, one of the services connected to the Center for Student Success.",
+    try:"Write down one question you would ask a career advisor in your first semester.",
+    src:[["CSS page","https://inside.montclair.edu/colleges-schools-research/bloomfield/office-dean/bloomfield-college-center-student-success"],BCH] },
+  { name:"Talbott Hall Student Center", b3d:12, kind:"Food and community", photo:"photos/talbott-hall-student-center-front.jpg", x:850, y:790,
+    today:"The Student Center. The lower level has the Commuter Lounge, Game Center, and Student Government. The first floor has Deacon's Den Pizza & Grill and the Center for Student Leadership & Engagement. The second floor is the Wellness Center, with counseling, health services, and the chaplain.",
+    then:"Talbott Hall opened in 1955 as the college library. After a new library opened in 2000, Talbott was renovated and reopened in September 2003 as a technology center for the Office of Information Technology. In August 2014, after a five-month renovation, the Student Center moved here for the start of the fall semester.",
+    dyk:"The Student Center spans four levels and 14,500 square feet. When it opened it included a fireplace lounge, Deacon's Den Pizza and Grill, a game room, and a Commuter Lounge, a nod to the many students who commute.",
+    try:"Find a flyer for a club or event you have never heard of.",
+    src:[["Student Center move","https://web.archive.org/web/20240228132237/https://bloomfield.edu/about-us/news/student-center-relocates-talbott-hall"],["Library page","https://inside.montclair.edu/bloomfield-campus-library"],["Kresge grant (2000)","https://web.archive.org/web/20040811095421/http://www.bloomfield.edu:80/news/Archive-2000/pr011100.asp"],["Talbott reopening (2003)","https://web.archive.org/web/20031212202503/http://www.bloomfield.edu:80/news/talbottopening/index.htm"],H24] },
+  { name:"Center for Technology & Creativity", b3d:10, kind:"Learning spaces", photo:"photos/center-for-technology-creativity-and-library-012025-01056-uc.jpg", credit:"Mike Peters / MSU University Communications", x:1180, y:770,
+    today:`Across Austin Place, next to the Library and Student Affairs. ${PH} Add labs, studios, or programs housed here.`,
+    then:"This building was the college's student center before the Student Center moved to Talbott Hall in 2014. Work to renovate it into the Center for Technology + Creativity began in October 2015, and the center opened in September 2016. The Division of Creative Arts & Technology moved here from the Westminster Arts Center.",
+    dyk:"The 26,000-square-foot center includes a game development lab, music technology lab, green screen studio, black box performance studio, and recording studio. It connects directly to the Scott Kaplan Art Gallery and a motion capture studio in the Library.",
+    try:"Look for a space where you could work on a group project.",
+    src:[["Groundbreaking (2015)","https://web.archive.org/web/20151024003522/http://www.bloomfield.edu:80/about-us/news/college-breaks-ground-center-technology-creativity"],["Center for Technology + Creativity","https://web.archive.org/web/20240415214033/https://bloomfield.edu/about-us/center-technology-creativity"],["Ribbon cutting","https://web.archive.org/web/20240419151639/https://bloomfield.edu/about-us/news/bloomfield-college-community-celebrates-center-technology-creativity"]] },
+  { name:"Library", b3d:10, kind:"Study space", photo:"photos/center-for-technology-creativity-and-library-061423-7830-uc.jpg", credit:"Mike Peters / MSU University Communications", x:1295, y:760,
+    today:`Between the Center for Technology & Creativity and Oakland Avenue. ${PH} Add hours, study floors, and research help.`,
+    then:"The library used to be in Talbott Hall, which opened in 1955 to serve 200 students and is now the Student Center. This two-story, 30,000-square-foot library at Oakland Avenue and Liberty Street opened in September 2000. It was the first new building on campus in 30 years and more than doubled the library's space.",
+    dyk:"In 1872, the college's first library was inside Seibert Hall, alongside a dormitory, classrooms, and faculty housing. Today the Bloomfield Campus Library is part of the Montclair State University Libraries system, and its second floor holds the Scott H. Kaplan Art Gallery, which opened in 2013.",
+    try:"Pick the spot where you would study before a big exam. Take a photo of it.",
+    src:[["Library page","https://inside.montclair.edu/bloomfield-campus-library"],["Kresge grant (2000)","https://web.archive.org/web/20040811095421/http://www.bloomfield.edu:80/news/Archive-2000/pr011100.asp"],["Library opening (2001)","https://web.archive.org/web/20040811095308/http://www.bloomfield.edu:80/news/Archive-2001/pr011101.asp"],BCH] }
+];
+// true only inside the combined campus app (walk + 3D tabs), which sets ?app=1 or window.IN_APP
+const inApp = window.IN_APP===true || /[?&]app=1\b/.test(location.search);
+const L = n => String.fromCharCode(65+n);
+
+const photos = {};
+let i = 0;
+const $ = id => document.getElementById(id);
+
+$("line").setAttribute("points", stops.filter(s=>s.x!=null).map(s=>`${s.x},${s.y}`).join(" "));
+$("pins").innerHTML = stops.map((s,n)=> s.x==null ? "" :
+  `<button class="pin" type="button" data-n="${n}" style="left:${s.x/20}%;top:${s.y/13.33}%" aria-label="Stop ${L(n)}: ${s.name}"><span>${L(n)}</span></button>`).join("");
+
+function centerOn(n, smooth){ const s = stops[n]; if(s.x!=null) centerXY(s.x, s.y, smooth); }
+function centerXY(x, y, smooth){
+  const m = $("map"), c = $("canvas"), s = {x, y};
+  if($("mapbox").classList.contains("out")) return;
+  const left = s.x/2000*c.offsetWidth - m.clientWidth/2;
+  const top = s.y/1333*c.offsetHeight - m.clientHeight/2;
+  m.scrollTo({left, top, behavior: smooth ? "smooth" : "auto"});
+}
+
+function render(smooth){
+  const s = stops[i];
+  document.querySelectorAll(".pin").forEach(p=>{ const n=+p.dataset.n;
+    p.classList.toggle("current", n===i);
+    n===i ? p.setAttribute("aria-current","step") : p.removeAttribute("aria-current");
+  });
+  $("card").innerHTML = `
+    <label class="photo" for="ph-${i}">
+      ${(photos[i]||s.photo) ? `<img src="${photos[i]||(window.EMBED&&EMBED[s.photo])||s.photo}" alt="${photos[i]?"Your photo of ":"Photo of "}${s.name}">${!photos[i]&&s.photo?`<span class="credit-tag">Photo: ${s.credit||"Mario Hamblin Jr."}</span>`:""}` :
+        `<b>Photo slot</b><span>Campus photo of ${s.name} goes here.<br>Tap to try one from your phone.</span>`}
+      <input type="file" accept="image/*" id="ph-${i}">
+    </label>
+    <div class="body">
+      <div>
+        <div class="eyebrow">Stop ${L(i)} · ${s.kind}${s.x==null?" · Not on map yet":""}</div>
+        <h2>${s.name}</h2>
+        <div class="tags">${s.x!=null?`<span class="tag ok">${s.loc||"Name and location from campus map"}</span>`:""}<span class="tag">Draft, sources pending verification</span></div>
+      </div>
+      <section><h3>Today</h3><p>${s.today}</p></section>
+      <section><h3>Then</h3><p>${s.then}</p></section>
+      <section class="dyk"><h3>Did you know?</h3><p>${s.dyk}</p></section>
+      <section><h3>Try this</h3><p>${s.try}</p></section>
+      ${inApp && s.b3d!=null ? `<button class="see3d" type="button" data-b="${s.b3d}">See this building in 3D</button>` : ""}
+      <p class="meta">Sources: ${s.src.map(([l,u])=>u?`<a href="${u}" target="_blank" rel="noopener">${l}</a>`:l).join(" · ")}<br>Getting here: accessible route and entrances to be verified.</p>
+    </div>`;
+  const s3 = $("card").querySelector(".see3d"); if(s3) s3.onclick = ()=> parent.postMessage({type:"show3d", id:+s3.dataset.b}, "*");
+  $("ph-"+i).addEventListener("change", e=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    photos[i] = URL.createObjectURL(f);
+    render(false);
+  });
+  $("count").textContent = `Stop ${L(i)} of ${L(stops.length-1)}`;
+  $("prev").disabled = i===0;
+  $("next").textContent = i===stops.length-1 ? "Start over ↺" : "Next stop ›";
+  centerOn(i, smooth);
+}
+
+function go(n){ i = (n+stops.length)%stops.length; clearHit(); render(true); }
+
+// Find an office: jump to the walk stop for that building, or mark the building on the map
+function clearHit(){ $("hit").hidden = true; $("hitnote").hidden = true; }
+function showHit(e, b){
+  const h = $("hit"); h.style.left = b.x/20+"%"; h.style.top = b.y/13.33+"%"; h.hidden = false;
+  $("hittext").textContent = `${e.o}: ${b.n}${e.w ? ", "+e.w : ""}`; $("hitnote").hidden = false;
+  $("mapbox").scrollIntoView({behavior:"smooth", block:"start"});
+  centerXY(b.x, b.y, true);
+}
+FindOffice.mount({ button: $("findbtn"), actions(e, b){
+  let n = stops.findIndex(s=>s.name===e.o); if(n<0) n = stops.findIndex(s=>s.b3d===e.b); const a = [];
+  if(n>=0) a.push({label:`Go to stop ${L(n)}`, primary:true, run:()=>{ go(n); window.scrollTo({top:0,behavior:"smooth"}); }});
+  a.push({label:"Show on map", primary:n<0, run:()=>showHit(e, b)});
+  if(inApp) a.push({label:"See in 3D", run:()=>parent.postMessage({type:"show3d", id:e.b}, "*")});
+  return a;
+}});
+$("hitclear").addEventListener("click", clearHit);
+
+$("pins").addEventListener("click", e=>{ const b=e.target.closest(".pin"); if(b) go(+b.dataset.n); });
+$("prev").addEventListener("click", ()=> i>0 && go(i-1));
+$("next").addEventListener("click", ()=> { go(i+1); window.scrollTo({top:0,behavior:"smooth"}); });
+$("zoom").addEventListener("click", ()=>{
+  const out = $("mapbox").classList.toggle("out");
+  $("zoom").textContent = out ? "Zoom in" : "Show whole map";
+  setTimeout(()=>centerOn(i,false), 260);
+});
+
+let x0=null;
+$("card").addEventListener("touchstart", e=>{ x0=e.touches[0].clientX; }, {passive:true});
+$("card").addEventListener("touchend", e=>{
+  if(x0===null) return; const dx=e.changedTouches[0].clientX-x0; x0=null;
+  if(Math.abs(dx)>60){ if(dx<0 && i<stops.length-1) go(i+1); else if(dx>0 && i>0) go(i-1); }
+});
+
+const img = document.querySelector(".canvas img");
+img.complete ? render(false) : (render(false), img.addEventListener("load", ()=>centerOn(i,false)));
+</script>
+
+</body>
+</html>
